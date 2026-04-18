@@ -111,6 +111,7 @@ class SurFree():
                 initial_x = init_attack(model, X[i:i+1], mean=kwargs.get('mean'), std=kwargs.get('std'), lb=lb_t, ub=ub_t)
                 x_b, init_queries = initial_x.find_random_adversarial(X[i:i+1])
                 self._nqueries[i] += init_queries
+                best_advs_list.append(x_b)
             self.best_advs = torch.cat(best_advs_list, dim=0)
         else:
             self.best_advs = starting_points
