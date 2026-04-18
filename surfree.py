@@ -2,7 +2,7 @@ import math
 import random
 import numpy as np
 import torch
-from utils.attack import get_init_with_noise
+from utils.attack import get_init_with_noise, init_attack, valid_bounds
 
 import utils.dct as torch_dct
 from utils.utils import atleast_kdim
@@ -97,8 +97,23 @@ class SurFree():
         self._model = model
 
         # Get Starting Point
-        self.best_advs = get_init_with_noise(model, X, labels) if starting_points is None else starting_points
+        #self.best_advs = get_init_with_noise(model, X, labels) if starting_points is None else starting_points
+        #self.X = X
         self.X = X
+        if starting_points is None:
+            delta = kwargs.get('delta', 255)
+            best_advs_list = []
+            for i in range(len(X)):
+                img_i = (X[i].cpu().numpy().transpose(1, 2, 0) * 255).astype(np.uint8)
+                lb, ub = valid_bounds(img_i, delta=delta)
+                lb_t = torch.from_numpy(lb.transpose(2, 0, 1)).float().div(255).to(X.device)
+                ub_t = torch.from_numpy(ub.transpose(2, 0, 1)).float().div(255).to(X.device)
+                initial_x = init_attack(model, X[i:i+1], mean=kwargs.get('mean'), std=kwargs.get('std'), lb=lb_t, ub=ub_t)
+                x_b, init_queries = initial_x.find_random_adversarial(X[i:i+1])
+                self._nqueries[i] += init_queries
+            self.best_advs = torch.cat(best_advs_list, dim=0)
+        else:
+            self.best_advs = starting_points
 
         # Check if X are already adversarials.
         self._images_finished = model(X).argmax(1) != labels
